@@ -1,8 +1,11 @@
-import winim
+import winim/lean
+import cstrutils
 import ptr_math
 import std/streams
-import os
 import std/strutils
+import os
+import Structs
+
 
 proc PrintBanner():void = 
     var banner = """
