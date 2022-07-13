@@ -14,13 +14,13 @@ type
         } FileHeader;
     ]#    
     FileHeader* {.bycopy.} = object
-        Machine: uint16
-        NumberOfSections: uint16
-        TimeDateStamp: uint32
-        PointerToSymbolTable: uint32
-        NumberOfSymbols: uint32
-        SizeOfOptionalHeader: uint16
-        Characteristics: uint16
+        Machine*: uint16
+        NumberOfSections*: uint16
+        TimeDateStamp*: uint32
+        PointerToSymbolTable*: uint32
+        NumberOfSymbols*: uint32
+        SizeOfOptionalHeader*: uint16
+        Characteristics*: uint16
 
     #[
         typedef struct {
@@ -37,16 +37,16 @@ type
             } SectionHeader;
     ]#
     SectionHeader* {.bycopy.} = object
-        Name: array[8,char]
-        VirtualSize: uint32
-        VirtualAddress: uint32
-        SizeOfRawData: uint32
-        PointerToRawData: uint32
-        PointerToRelocations: uint32
-        PointerToLinenumbers: uint32
-        NumberOfRelocations: uint16
-        NumberOfLinenumbers: uint16
-        Characteristics: uint32
+        Name*: array[8,char]
+        VirtualSize*: uint32
+        VirtualAddress*: uint32
+        SizeOfRawData*: uint32
+        PointerToRawData*: uint32
+        PointerToRelocations*: uint32
+        PointerToLinenumbers*: uint32
+        NumberOfRelocations*: uint16
+        NumberOfLinenumbers*: uint16
+        Characteristics*: uint32
 
     #[
         typedef struct {
@@ -61,17 +61,20 @@ type
 	        UINT8 NumberOfAuxSymbols;
             } SymbolTableEntry;
     ]#
-    UnionFirst {.union.} = object
-        Name: array[8,char]
-        Value: array[2,uint32]
+
+    UnionFirst* {.final,union,pure.} = object
+        Name*: array[8,char]
+        value*: array[2,uint32]
+    
+   
 
     SymbolTableEntry* {.bycopy.} = object
-        First: UnionFirst   
-        Value: uint32
-        SectionNumber: uint16
-        Type: uint16
-        StorageClass: uint8
-        NumberOfAuxSymbols: uint8
+        First*: UnionFirst
+        Value*: uint32
+        SectionNumber*: uint16
+        Type*: uint16
+        StorageClass*: uint8
+        NumberOfAuxSymbols*: uint8
 
     #[
         typedef struct {
@@ -82,10 +85,14 @@ type
     ]#
 
     RelocationTableEntry* {.bycopy.} = object
-        VirtualAddress: uint32
-        SymbolTableIndex: uint32
-        Type: uint16
+        VirtualAddress*: uint32
+        SymbolTableIndex*: uint32
+        Type*: uint16
     
+    SectionInfo* {.bycopy.} = object
+        Name*: string
+        SectionOffset*: uint64
+        SectionHeaderPtr*: ptr SectionHeader
 
     
 const
