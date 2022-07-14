@@ -53,8 +53,42 @@ proc GetNumberOfExternalFunctions(fileBuffer:seq[byte],textSectionHeader:ptr Sec
             returnValue+=1
         #relocationTableCursor = cast[ptr RelocationTableEntry](cast[LPVOID](relocationTableCursor)+sizeof(RelocationTableEntry))
         relocationTableCursor+=1
-    return returnValue * cast[uint64](sizeof(ptr byte))
+    return returnValue * cast[uint64](sizeof(ptr uint64))
 
+proc GetExternalFunctionAddress(symbolName:string):uint64 =
+    var prefixSymbol:string = "__imp_"
+    var prefixBeacon:string = "__imp_Beacon"
+    var prefixToWideChar:string = "__imp_toWideChar"
+    var libraryName:string = ""
+    var functionName:string = ""
+    var returnAddress:uint64 = 0
+    if(not symbolName.startsWith(prefixSymbol)):
+        echo "Function with unknown naming convention! [",symbolName,"]"
+        return returnAddress
+    # Check is it our cs function implementation
+    if(symbolName.startsWith(prefixBeacon) or symbolName.startsWith(prefixToWideChar)):
+        # TODO implement 25 internal cs function
+        discard
+    else:
+        try:
+            # Why removePrefix doesn't work with 2 strings argument?
+            var symbolWithoutPrefix:string = symbolName[6..symbolName.len-1]
+            var symbolSubstrings:seq[string] = symbolWithoutPrefix.split({'@','$'},2)
+            libraryName = symbolSubstrings[0]
+            functionName = symbolSubstrings[1]
+        except:
+            echo "Symbol splitting problem! [",symbolName,"]"
+            return returnAddress
+        var libraryHandle:HMODULE = LoadLibraryA(addr(libraryName[0]))
+        if(libraryHandle != 0):
+            returnAddress = cast[uint64](GetProcAddress(libraryHandle,addr(functionName[0])))
+            if(returnAddress == 0):
+                echo "Error on Function address! [",functionName,"]"
+            return returnAddress
+        else:
+            echo "Error on loading library! [",libraryName,"]"
+            return returnAddress
+        
 
 
 proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):bool = 
@@ -75,6 +109,11 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
     var isExternal:bool = false
     var isInternal:bool = false
     var patchAddress:LPVOID = nil
+    var stringTableOffset:int = 0
+    var symbolName:string = ""
+    var externalFunctionCount:int = 0
+    var externalFunctionStoreAddress:ptr uint64 = nil
+    var tempFunctionAddr:uint64 = 0
     # Calculate the total size for allocation
     for i in countup(0,cast[int](fileHeader.NumberOfSections-1)):
         #copyMem(sectionAddresses[i],unsafeaddr(fileBuffer[0])+cast[int](sectionHeaderCursor.PointerToRawData),sectionHeaderCursor.SizeOfRawData)
@@ -99,6 +138,7 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
         return false
     # Now copy the sections
     sectionHeaderCursor = sectionHeaderArray
+    externalFunctionStoreAddress = cast[ptr uint64](totalSize+cast[uint64](allocatedMemory))
     for i in countup(0,cast[int](fileHeader.NumberOfSections-1)):
         copyMem(cast[LPVOID](cast[uint64](allocatedMemory)+memoryCursor),unsafeaddr(fileBuffer[0])+cast[int](sectionHeaderCursor.PointerToRawData),sectionHeaderCursor.SizeOfRawData)
         sectionHeaderCursor+=1
@@ -109,12 +149,18 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
         echo "  [+] Relocations for section: ",sectionInfoList[i].Name
         relocationTableCursor = cast[ptr RelocationTableEntry](unsafeAddr(fileBuffer[0]) + cast[int](sectionInfoList[i].SectionHeaderPtr.PointerToRelocations))
         for relocationCount in countup(0, cast[int](sectionInfoList[i].SectionHeaderPtr.NumberOfRelocations)):
-            symbolTableCursor = symbolTable + cast[int](relocationTableCursor.SymbolTableIndex)
+            symbolTableCursor = cast[ptr SymbolTableEntry](symbolTable + cast[int](relocationTableCursor.SymbolTableIndex))
             sectionIndex = cast[int](symbolTableCursor.SectionNumber - 1)
             isExternal = (symbolTableCursor.StorageClass == IMAGE_SYM_CLASS_EXTERNAL and symbolTableCursor.SectionNumber == 0)
             isInternal = (symbolTableCursor.StorageClass == IMAGE_SYM_CLASS_EXTERNAL and symbolTableCursor.SectionNumber != 0)
             patchAddress = cast[LPVOID](cast[uint64](allocatedMemory) + sectionInfoList[i].SectionOffset + cast[uint64](relocationTableCursor.VirtualAddress - sectionInfoList[i].SectionHeaderPtr.VirtualAddress))
             relocationTableCursor+=1
+            if(isExternal):
+                stringTableOffset = cast[int](symbolTableCursor.First.value[1])
+                symbolName = $(cast[ptr byte](symbolTable+cast[int](fileHeader.NumberOfSymbols))+stringTableOffset)
+                tempFunctionAddr = GetExternalFunctionAddress(symbolName)
+            else:
+                discard
     
 
     return true
