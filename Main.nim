@@ -4,6 +4,7 @@ import std/streams
 import std/strutils
 import os
 import Structs
+import BeaconFunctions
 
 
 proc PrintBanner():void = 
