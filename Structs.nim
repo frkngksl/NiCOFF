@@ -13,7 +13,7 @@ type
 	    UINT16 Characteristics;
         } FileHeader;
     ]#    
-    FileHeader* {.bycopy.} = object
+    FileHeader* {.bycopy,packed.} = object
         Machine*: uint16
         NumberOfSections*: uint16
         TimeDateStamp*: uint32
@@ -36,7 +36,7 @@ type
 	        UINT32 Characteristics;			//The flags that describe the characteristics of the section
             } SectionHeader;
     ]#
-    SectionHeader* {.bycopy.} = object
+    SectionHeader* {.bycopy,packed.} = object
         Name*: array[8,char]
         VirtualSize*: uint32
         VirtualAddress*: uint32
@@ -68,7 +68,7 @@ type
     
    
 
-    SymbolTableEntry* {.bycopy.} = object
+    SymbolTableEntry* {.bycopy, packed.} = object
         First*: UnionFirst
         Value*: uint32
         SectionNumber*: uint16
@@ -84,7 +84,7 @@ type
         } RelocationTableEntry;
     ]#
 
-    RelocationTableEntry* {.bycopy.} = object
+    RelocationTableEntry* {.bycopy, packed.} = object
         VirtualAddress*: uint32
         SymbolTableIndex*: uint32
         Type*: uint16

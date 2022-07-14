@@ -47,13 +47,13 @@ proc GetNumberOfExternalFunctions(fileBuffer:seq[byte],textSectionHeader:ptr Sec
     var symbolTable:ptr SymbolTableEntry = cast[ptr SymbolTableEntry](unsafeAddr(fileBuffer[0]) + cast[int]((cast[ptr FileHeader](unsafeAddr(fileBuffer[0]))).PointerToSymbolTable))
     var relocationTableCursor:ptr RelocationTableEntry = cast[ptr RelocationTableEntry](unsafeAddr(fileBuffer[0]) + cast[int](textSectionHeader.PointerToRelocations))
     for i in countup(0,cast[int](textSectionHeader.NumberOfRelocations-1)):
-        echo sizeof(SymbolTableEntry)
-        symbolTableCursor = cast[ptr SymbolTableEntry](cast[uint64](symbolTable) + cast[uint64](relocationTableCursor.SymbolTableIndex)*cast[uint64](sizeof(SymbolTableEntry)))
+        # echo sizeof(SymbolTableEntry)
+        symbolTableCursor = cast[ptr SymbolTableEntry](symbolTable + cast[int](relocationTableCursor.SymbolTableIndex))
         if(symbolTableCursor.StorageClass == IMAGE_SYM_CLASS_EXTERNAL and symbolTableCursor.SectionNumber == 0):
             returnValue+=1
         #relocationTableCursor = cast[ptr RelocationTableEntry](cast[LPVOID](relocationTableCursor)+sizeof(RelocationTableEntry))
         relocationTableCursor+=1
-    return returnValue
+    return returnValue * cast[uint64](sizeof(ptr byte))
 
 
 
