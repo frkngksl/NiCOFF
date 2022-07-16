@@ -7,7 +7,7 @@ import system
 import Structs
 import BeaconFunctions
 
-type COFFEntry = proc(args:ptr byte, argssize: uint32) {.cdecl.}
+type COFFEntry = proc(args:ptr byte, argssize: uint32) {.stdcall.}
 
 
 proc PrintBanner():void = 
@@ -101,7 +101,7 @@ proc Read32Le(p:ptr uint8):uint32 =
     var val2:uint32 = cast[uint32](p[1])
     var val3:uint32 = cast[uint32](p[2])
     var val4:uint32 = cast[uint32](p[3])
-    return val1 shl 0 or val2 shl 8 or val3 shl 16 or val4 shl 24
+    return (val1 shl 0) or (val2 shl 8) or (val3 shl 16) or (val4 shl 24)
 
 proc Write32Le(dst:ptr uint8,x:uint32):void =
     dst[0] = cast[uint8](x shr 0)
@@ -110,18 +110,27 @@ proc Write32Le(dst:ptr uint8,x:uint32):void =
     dst[3] = cast[uint8](x shr 24)
 
 proc Add32(p:ptr uint8, v:uint32) = 
+    echo cast[uint64](p)
     Write32le(p,Read32le(p)+v)
     
 proc ApplyGeneralRelocations(patchAddress:uint64,sectionStartAddress:uint64,givenType:uint16,symbolOffset:uint32):void =
     var pAddr8:ptr uint8 = cast[ptr uint8](patchAddress)
     var pAddr64:ptr uint64 = cast[ptr uint64](patchAddress)
+    var test:uint64 = sectionStartAddress - patchAddress - 4
+    echo test
+    test+=symbolOffset
+    echo test
+    echo givenType
     case givenType:
         of IMAGE_REL_AMD64_REL32:
             Add32(pAddr8, cast[uint32](sectionStartAddress + cast[uint64](symbolOffset) -  patchAddress - 4))
+            return
         of IMAGE_REL_AMD64_ADDR32NB:
             Add32(pAddr8, cast[uint32](sectionStartAddress - patchAddress - 4))
+            return
         of IMAGE_REL_AMD64_ADDR64:
             pAddr64[] = pAddr64[] + sectionStartAddress
+            return
         else:
             echo "[!] No code for type: ",givenType
 
@@ -152,6 +161,7 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
     var delta:uint64 = 0
     var tempPointer:ptr uint32 = nil
     var entryAddress:uint64 = 0
+    var sectionStartAddress:uint64 = 0
     # Calculate the total size for allocation
     for i in countup(0,cast[int](fileHeader.NumberOfSections-1)):
         #copyMem(sectionAddresses[i],unsafeaddr(fileBuffer[0])+cast[int](sectionHeaderCursor.PointerToRawData),sectionHeaderCursor.SizeOfRawData)
@@ -179,14 +189,14 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
     externalFunctionStoreAddress = cast[ptr uint64](totalSize+cast[uint64](allocatedMemory))
     for i in countup(0,cast[int](fileHeader.NumberOfSections-1)):
         copyMem(cast[LPVOID](cast[uint64](allocatedMemory)+memoryCursor),unsafeaddr(fileBuffer[0])+cast[int](sectionHeaderCursor.PointerToRawData),sectionHeaderCursor.SizeOfRawData)
+        memoryCursor += sectionHeaderCursor.SizeOfRawData
         sectionHeaderCursor+=1
-        memoryCursor+=sectionHeaderCursor.SizeOfRawData
     echo "[+] Sections are copied!"
     # Relocations start
     for i in countup(0,cast[int](fileHeader.NumberOfSections-1)):
         echo "  [+] Relocations for section: ",sectionInfoList[i].Name
         relocationTableCursor = cast[ptr RelocationTableEntry](unsafeAddr(fileBuffer[0]) + cast[int](sectionInfoList[i].SectionHeaderPtr.PointerToRelocations))
-        for relocationCount in countup(0, cast[int](sectionInfoList[i].SectionHeaderPtr.NumberOfRelocations)):
+        for relocationCount in countup(0, cast[int](sectionInfoList[i].SectionHeaderPtr.NumberOfRelocations)-1):
             symbolTableCursor = cast[ptr SymbolTableEntry](symbolTable + cast[int](relocationTableCursor.SymbolTableIndex))
             sectionIndex = cast[int](symbolTableCursor.SectionNumber - 1)
             isExternal = (symbolTableCursor.StorageClass == IMAGE_SYM_CLASS_EXTERNAL and symbolTableCursor.SectionNumber == 0)
@@ -210,7 +220,12 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
                 if(sectionIndex >= sectionInfoList.len or sectionIndex < 0):
                     echo "[!] Error on symbol section index! [",sectionIndex,"]"
                     return false
-                var sectionStartAddress:uint64 = cast[uint64](allocatedMemory) + sectionInfoList[sectionIndex].SectionOffset
+                sectionStartAddress = cast[uint64](allocatedMemory) + sectionInfoList[sectionIndex].SectionOffset
+                if(isInternal):
+                    for internalCount in countup(0,sectionInfoList.len-1):
+                        if(sectionInfoList[internalCount].Name == ".text"):
+                            sectionStartAddress = cast[uint64](allocatedMemory) + sectionInfoList[internalCount].SectionOffset
+                            break
                 ApplyGeneralRelocations(patchAddress,sectionStartAddress,relocationTableCursor.Type,symbolTableCursor.Value)
             relocationTableCursor+=1
     echo "[+] Relocations are done!"
@@ -223,6 +238,8 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
         echo "[!] Entry not found!"
         return false
     var entryPtr:COFFEntry = cast[COFFEntry](entryAddress)
+    echo "[+] ",functionName," entry found! "
+    echo "[+] Executing..."
     entryPtr(unsafeaddr(argumentBuffer[0]),cast[uint32](argumentBuffer.len))
     return true
 
