@@ -110,17 +110,11 @@ proc Write32Le(dst:ptr uint8,x:uint32):void =
     dst[3] = cast[uint8](x shr 24)
 
 proc Add32(p:ptr uint8, v:uint32) = 
-    echo cast[uint64](p)
     Write32le(p,Read32le(p)+v)
     
 proc ApplyGeneralRelocations(patchAddress:uint64,sectionStartAddress:uint64,givenType:uint16,symbolOffset:uint32):void =
     var pAddr8:ptr uint8 = cast[ptr uint8](patchAddress)
     var pAddr64:ptr uint64 = cast[ptr uint64](patchAddress)
-    var test:uint64 = sectionStartAddress - patchAddress - 4
-    echo test
-    test+=symbolOffset
-    echo test
-    echo givenType
     case givenType:
         of IMAGE_REL_AMD64_REL32:
             Add32(pAddr8, cast[uint32](sectionStartAddress + cast[uint64](symbolOffset) -  patchAddress - 4))
@@ -209,7 +203,7 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
                 tempFunctionAddr = GetExternalFunctionAddress(symbolName)
                 if(tempFunctionAddr != 0):
                     (externalFunctionStoreAddress + externalFunctionCount)[] = tempFunctionAddr
-                    delta = (cast[uint64](externalFunctionStoreAddress) + cast[uint64](externalFunctionCount)) - cast[uint64](patchAddress) - 4
+                    delta = cast[uint64]((externalFunctionStoreAddress + externalFunctionCount)) - cast[uint64](patchAddress) - 4
                     tempPointer = cast[ptr uint32](patchAddress)
                     tempPointer[] = cast[uint32](delta)
                     externalFunctionCount+=1
@@ -240,7 +234,8 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
     var entryPtr:COFFEntry = cast[COFFEntry](entryAddress)
     echo "[+] ",functionName," entry found! "
     echo "[+] Executing..."
-    entryPtr(unsafeaddr(argumentBuffer[0]),cast[uint32](argumentBuffer.len))
+    #entryPtr(unsafeaddr(argumentBuffer[0]),cast[uint32](argumentBuffer.len))
+    entryPtr(NULL,0) # Problem on getIPInfo --> LoadLibrary bozuk !!!!!!
     return true
 
 when isMainModule:
