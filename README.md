@@ -14,10 +14,35 @@ In case you get the error "cannot open file", you should also install required d
 
 # Usage
 
-NiCOFF can take up to three arguments which are BOF or COFF file path, started function entry, and optional BOF arguments (you can check [Kevin's script](https://github.com/trustedsec/COFFLoader/blob/main/beacon_generate.py)).
+NiCOFF can take up to three arguments which are BOF or COFF file path, started function entry (you may want to change function pointer), and optional BOF arguments (you can check [Kevin's script](https://github.com/trustedsec/COFFLoader/blob/main/beacon_generate.py)).
 
 ```
-NiCOFF.exe go test64.out 0400000005000000
+PS C:\Users\test\Desktop\NiCOFF\bin> .\NiCOFF.exe .\ipconfig.x64.o go
+ ______  _  ______ _____  _______ _______
+|  ___ \(_)/ _____) ___ \(_______|_______)
+| |   | |_| /    | |   | |_____   _____
+| |   | | | |    | |   | |  ___) |  ___)
+| |   | | | \____| |___| | |     | |
+|_|   |_|_|\______)_____/|_|     |_|
+
+                @R0h1rr1m
+
+[+] File is read!
+[+] Sections are copied!
+  [+] Relocations for section: .text
+  [+] Relocations for section: .data
+  [+] Relocations for section: .bss
+  [+] Relocations for section: .xdata
+  [+] Relocations for section: .pdata
+  [+] Relocations for section: .rdata
+  [+] Relocations for section: /4
+[+] Relocations are done!
+[+] Trying to find the entry: go
+[+] go entry found!
+[+] Executing...
+[+] COFF File is Executed!
+[+] Output Below:
+
 ```
 
 # References
