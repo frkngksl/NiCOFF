@@ -6,7 +6,7 @@ Basically, NiCOFF is a COFF and BOF file loader written in Nim. NiCOFF reads a B
 
 You can directly compile the source code with the following command:
 
-` nim c -d:release Main.nim -o NiCOFF.exe`
+`nim c -d:release -o:NiCOFF.exe Main.nim`
 
 In case you get the error "cannot open file", you should also install required dependencies:
 
