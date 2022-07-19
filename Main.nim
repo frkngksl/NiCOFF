@@ -45,17 +45,17 @@ proc HexStringToByteArray(hexString:string,hexLength:int):seq[byte] =
     #fromHex[uint8]
     return returnValue
 
+# By traversing the relocations of text section, we can count the external functions
 proc GetNumberOfExternalFunctions(fileBuffer:seq[byte],textSectionHeader:ptr SectionHeader):uint64 =
     var returnValue:uint64=0
     var symbolTableCursor:ptr SymbolTableEntry = nil
     var symbolTable:ptr SymbolTableEntry = cast[ptr SymbolTableEntry](unsafeAddr(fileBuffer[0]) + cast[int]((cast[ptr FileHeader](unsafeAddr(fileBuffer[0]))).PointerToSymbolTable))
     var relocationTableCursor:ptr RelocationTableEntry = cast[ptr RelocationTableEntry](unsafeAddr(fileBuffer[0]) + cast[int](textSectionHeader.PointerToRelocations))
     for i in countup(0,cast[int](textSectionHeader.NumberOfRelocations-1)):
-        # echo sizeof(SymbolTableEntry)
         symbolTableCursor = cast[ptr SymbolTableEntry](symbolTable + cast[int](relocationTableCursor.SymbolTableIndex))
+        # Condition for an external symbol
         if(symbolTableCursor.StorageClass == IMAGE_SYM_CLASS_EXTERNAL and symbolTableCursor.SectionNumber == 0):
             returnValue+=1
-        #relocationTableCursor = cast[ptr RelocationTableEntry](cast[LPVOID](relocationTableCursor)+sizeof(RelocationTableEntry))
         relocationTableCursor+=1
     return returnValue * cast[uint64](sizeof(ptr uint64))
 
@@ -72,7 +72,6 @@ proc GetExternalFunctionAddress(symbolName:string):uint64 =
         return returnAddress
     # Check is it our cs function implementation
     if(symbolName.startsWith(prefixBeacon) or symbolName.startsWith(prefixToWideChar)):
-        # TODO implement 23 internal cs function
         for i in countup(0,22):
             if(symbolWithoutPrefix == functionAddresses[i].name):
                 return functionAddresses[i].address
@@ -158,9 +157,8 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
     var sectionStartAddress:uint64 = 0
     # Calculate the total size for allocation
     for i in countup(0,cast[int](fileHeader.NumberOfSections-1)):
-        #copyMem(sectionAddresses[i],unsafeaddr(fileBuffer[0])+cast[int](sectionHeaderCursor.PointerToRawData),sectionHeaderCursor.SizeOfRawData)
-        #echo $(addr(sectionHeaderCursor.Name[0]))
         if($(addr(sectionHeaderCursor.Name[0])) == ".text"):
+            # Seperate saving for text section header
             textSectionHeader = sectionHeaderCursor
         # Save the section info
         tempSectionInfo.Name = $(addr(sectionHeaderCursor.Name[0]))
@@ -186,8 +184,9 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
         memoryCursor += sectionHeaderCursor.SizeOfRawData
         sectionHeaderCursor+=1
     echo "[+] Sections are copied!"
-    # Relocations start
+    # Start relocations
     for i in countup(0,cast[int](fileHeader.NumberOfSections-1)):
+        # Traverse each section for its relocations
         echo "  [+] Relocations for section: ",sectionInfoList[i].Name
         relocationTableCursor = cast[ptr RelocationTableEntry](unsafeAddr(fileBuffer[0]) + cast[int](sectionInfoList[i].SectionHeaderPtr.PointerToRelocations))
         for relocationCount in countup(0, cast[int](sectionInfoList[i].SectionHeaderPtr.NumberOfRelocations)-1):
@@ -226,7 +225,7 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
     for i in countup(0,cast[int](fileHeader.NumberOfSymbols-1)):
         symbolTableCursor = symbolTable + i
         if(functionName == $(addr(symbolTableCursor.First.Name[0]))):
-            echo "[+] Found the entry: ",functionName
+            echo "[+] Trying to find the entry: ",functionName
             entryAddress = cast[uint64](allocatedMemory) + sectionInfoList[symbolTableCursor.SectionNumber-1].SectionOffset + symbolTableCursor.Value
     if(entryAddress == 0):
         echo "[!] Entry not found!"
@@ -234,8 +233,10 @@ proc RunCOFF(functionName:string,fileBuffer:seq[byte],argumentBuffer:seq[byte]):
     var entryPtr:COFFEntry = cast[COFFEntry](entryAddress)
     echo "[+] ",functionName," entry found! "
     echo "[+] Executing..."
-    #entryPtr(unsafeaddr(argumentBuffer[0]),cast[uint32](argumentBuffer.len))
-    entryPtr(NULL,0) # Problem on getIPInfo --> LoadLibrary bozuk !!!!!!
+    if(argumentBuffer.len == 0):
+        entryPtr(NULL,0)
+    else:
+        entryPtr(unsafeaddr(argumentBuffer[0]),cast[uint32](argumentBuffer.len))
     return true
 
 when isMainModule:
@@ -243,6 +244,7 @@ when isMainModule:
     if(paramCount() < 2 or paramCount() > 3):
         DisplayHelp()
         quit(0)
+    # Read the file
     var fileBuffer:seq[byte] = ReadFileFromDisk(paramStr(1))
     var argumentBuffer:seq[byte] = @[]
     if(fileBuffer.len == 0):
@@ -250,11 +252,13 @@ when isMainModule:
         quit(0)
     echo "[+] File is read!"
     if(paramCount() == 3):
+        # Unhexlify the arguments
         argumentBuffer = HexStringToByteArray(paramStr(3),paramStr(3).len)
         if(argumentBuffer.len == 0):
             echo "[!] Error on unhexlifying the argument!"
             quit(0)
         echo "[+] Argument is unhexlified!"
+    # Run COFF file
     if(not RunCOFF(paramStr(2),fileBuffer,argumentBuffer)):
         echo "[!] Error on executing file!"
         VirtualFree(allocatedMemory, 0, MEM_RELEASE)
