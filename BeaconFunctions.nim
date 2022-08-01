@@ -132,20 +132,27 @@ proc BeaconFormatAppend(format:ptr Formatp,text:ptr char,len:int):void{.stdcall.
     format.buffer+=len
     format.length+=len
 
-# void   BeaconPrintf(int type, char* fmt, ...); TODO varargs ?
+# void   BeaconPrintf(int type, char* fmt, ...);
 # Reference: https://forum.nim-lang.org/t/7352
 type va_list* {.importc: "va_list", header: "<stdarg.h>".} = object
+proc va_start(format: va_list, args: ptr char) {.stdcall, importc, header: "stdio.h"}
+proc va_end(ap: va_list) {.stdcall, importc, header: "stdio.h"}
 proc vprintf(format: cstring, args: va_list) {.stdcall, importc, header: "stdio.h"}
 proc vsnprintf(buffer: cstring; size: int; fmt: cstring; args: va_list): int {.stdcall, importc, dynlib: "msvcrt".}
 
 
-# void    BeaconFormatPrintf(formatp* format, char* fmt, ...); --> TODO VARARGS
-proc BeaconFormatPrintf(format:ptr Formatp,fmt:ptr char,args: va_list):void{.stdcall.} =
+# void    BeaconFormatPrintf(formatp* format, char* fmt, ...);
+proc BeaconFormatPrintf(format:ptr Formatp,fmt:ptr char):void{.stdcall, varargs.} =
     var length:int = 0
+    var args: va_list
+    va_start(args, fmt)
     length = vsnprintf(NULL, 0, fmt, args)
+    va_end(args)
     if(format.length + length > format.size):
         return
+    va_start(args, fmt)
     discard vsnprintf(format.buffer,length,fmt,args)
+    va_end(args)
     format.length+=length
     format.buffer+=length
 
@@ -185,11 +192,17 @@ const
     CALLBACK_OUTPUT_UTF8 = 0x20
 
 
-proc BeaconPrintf(typeArg:int,fmt:ptr char,args: va_list):void{.stdcall.} =
+proc BeaconPrintf(typeArg:int,fmt:ptr char):void{.stdcall, varargs.} =
     var length:int = 0
     var tempPtr:ptr char = nil
-    vprintf(fmt,args)
+    var args: va_list
+    va_start(args, fmt)
+    vprintf(fmt, args)
+    va_end(args)
+
+    va_start(args, fmt)
     length = vsnprintf(NULL,0,fmt,args)
+    va_end(args)
     tempPtr = cast[ptr char](realloc(beaconCompatibilityOutput,beaconCompatibilitySize+length+1))
     if(tempPtr == nil):
         return
