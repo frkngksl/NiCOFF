@@ -209,9 +209,11 @@ proc BeaconPrintf(typeArg:int,fmt:ptr char):void{.stdcall, varargs.} =
     beaconCompatibilityOutput = tempPtr
     for i in countup(0,length):
         (beaconCompatibilityOutput + beaconCompatibilityOffset + i)[] = cast[char](0x00)
+    va_start(args, fmt)
     length = vsnprintf(beaconCompatibilityOutput+beaconCompatibilityOffset,length,fmt,args)
     beaconCompatibilitySize += length
     beaconCompatibilityOffset += length
+    va_end(args)
     
     
     
