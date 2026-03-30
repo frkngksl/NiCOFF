@@ -1,5 +1,4 @@
 # NiCOFF
-
 Basically, NiCOFF is a COFF and BOF file loader written in Nim. NiCOFF reads a BOF or COFF file, parses and executes it in the memory. Whole project is based on [Yasser](https://twitter.com/Yas_o_h)'s and [Kevin](https://twitter.com/kev169)'s COFF Loader projects. Both the loader and beacon functions in these projects were rewritten in Nim. 
 
 # Compilation
