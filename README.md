@@ -50,3 +50,7 @@ PS C:\Users\test\Desktop\NiCOFF\bin> .\NiCOFF.exe .\ipconfig.x64.o go
 - https://github.com/Yaxser/COFFLoader2
 - https://0xpat.github.io/Malware_development_part_8/
 - https://blog.cloudflare.com/how-to-execute-an-object-file-part-1/
+
+## Disclaimer
+
+For authorized security testing only. Misuse of this tool against systems without explicit permission is illegal.
